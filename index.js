@@ -1,21 +1,30 @@
-const { create } = require('@open-wa/wa-automate');
+let lastQR; // guarda el último QR
 
 create({
-  sessionId: 'session',
-  multiDevice: true,
-  authTimeout: 120,
+  sessionId: "waha",
   qrTimeout: 0,
-  killProcessOnBrowserClose: false,
+  multiDevice: true,
+  authTimeout: 60,
   headless: true,
-  disableSpins: true,
-  useChrome: false
-})
-  .then((client) => start(client));
+  qrRefreshS: 15,
+  qrLogSkip: true,
+  killProcessOnBrowserClose: true,
+  onQRCodeUpdated: (qrData) => {
+    lastQR = qrData;
+  }
+}).then(client => {
+  console.log('WAHA Ready');
+});
 
-function start(client) {
-  client.onMessage(async (message) => {
-    if (message.body === 'ping') {
-      await client.sendText(message.from, 'pong');
-    }
-  });
-}
+const express = require('express');
+const app = express();
+
+app.get('/qr', (req, res) => {
+  if (!lastQR) return res.send('QR no disponible aún.');
+  const qrImg = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(lastQR)}&size=300x300"/>`;
+  res.send(`<body style="display:flex;align-items:center;justify-content:center;height:100vh;">${qrImg}</body>`);
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log('Servidor express iniciado');
+});
