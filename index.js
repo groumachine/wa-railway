@@ -1,30 +1,45 @@
-let lastQR; // guarda el último QR
-
-create({
-  sessionId: "waha",
-  qrTimeout: 0,
-  multiDevice: true,
-  authTimeout: 60,
-  headless: true,
-  qrRefreshS: 15,
-  qrLogSkip: true,
-  killProcessOnBrowserClose: true,
-  onQRCodeUpdated: (qrData) => {
-    lastQR = qrData;
-  }
-}).then(client => {
-  console.log('WAHA Ready');
-});
-
+const { create, ev } = require('@open-wa/wa-automate');
 const express = require('express');
 const app = express();
 
-app.get('/qr', (req, res) => {
-  if (!lastQR) return res.send('QR no disponible aún.');
-  const qrImg = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(lastQR)}&size=300x300"/>`;
-  res.send(`<body style="display:flex;align-items:center;justify-content:center;height:100vh;">${qrImg}</body>`);
+let qrImage = '';
+const PORT = process.env.PORT || 3000;
+
+create({
+  headless: true,
+  qrTimeout: 0,
+  authTimeout: 0,
+  killProcessOnBrowserClose: true,
+  multiDevice: true,
+  useChrome: true,
+}).then(client => {
+  console.log('✅ Cliente iniciado');
+  
+  client.onMessage(async message => {
+    if (message.body === 'ping') {
+      await client.sendText(message.from, 'pong');
+    }
+  });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log('Servidor express iniciado');
+// Escuchar eventos del QR
+ev.on('qr.**', async qrcode => {
+  const qr = await require('qrcode').toDataURL(qrcode);
+  qrImage = qr;
+  console.log('⚡ QR actualizado');
+});
+
+// Ruta principal
+app.get('/', (_, res) => {
+  res.send(`<h1>WA Automate</h1><p><a href="/qr">Escanear QR</a></p>`);
+});
+
+// Ruta para ver QR
+app.get('/qr', (_, res) => {
+  if (!qrImage) return res.send('Esperando QR...');
+  res.send(`<img src="${qrImage}" style="width:300px"/>`);
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor activo en http://localhost:${PORT}`);
 });
