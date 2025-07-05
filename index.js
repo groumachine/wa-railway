@@ -1,45 +1,38 @@
-const { create, ev } = require('@open-wa/wa-automate');
 const express = require('express');
+const { create } = require('@open-wa/wa-automate');
 const app = express();
+const port = process.env.PORT || 3000;
 
-let qrImage = '';
-const PORT = process.env.PORT || 3000;
+let clientInstance;
 
-create({
-  headless: true,
-  qrTimeout: 0,
-  authTimeout: 0,
-  killProcessOnBrowserClose: true,
-  multiDevice: true,
-  useChrome: true,
-}).then(client => {
-  console.log('✅ Cliente iniciado');
-  
-  client.onMessage(async message => {
-    if (message.body === 'ping') {
-      await client.sendText(message.from, 'pong');
-    }
+const start = async () => {
+  clientInstance = await create({
+    headless: true,
+    executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome-stable',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    qrTimeout: 0,
+    authTimeout: 0,
+    killProcessOnBrowserClose: true,
+    useChrome: true,
+    multiDevice: true
   });
+};
+
+app.get('/', (req, res) => {
+  res.send('WAHA corriendo correctamente.');
 });
 
-// Escuchar eventos del QR
-ev.on('qr.**', async qrcode => {
-  const qr = await require('qrcode').toDataURL(qrcode);
-  qrImage = qr;
-  console.log('⚡ QR actualizado');
+app.get('/qr', async (req, res) => {
+  if (!clientInstance) {
+    return res.status(500).send('WAHA aún no está inicializado.');
+  }
+  const qr = await clientInstance.getQRRef();
+  if (!qr) return res.send('Ya estás logueado.');
+  res.send(`<img src="https://api.qrserver.com/v1/create-qr-code/?data=${qr}&size=300x300" />`);
 });
 
-// Ruta principal
-app.get('/', (_, res) => {
-  res.send(`<h1>WA Automate</h1><p><a href="/qr">Escanear QR</a></p>`);
-});
+start();
 
-// Ruta para ver QR
-app.get('/qr', (_, res) => {
-  if (!qrImage) return res.send('Esperando QR...');
-  res.send(`<img src="${qrImage}" style="width:300px"/>`);
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor activo en http://localhost:${PORT}`);
+app.listen(port, () => {
+  console.log(`Servidor iniciado en http://localhost:${port}`);
 });
