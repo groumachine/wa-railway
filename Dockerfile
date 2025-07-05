@@ -1,4 +1,4 @@
-FROM ghcr.io/puppeteer/puppeteer:latest
+FROM mcr.microsoft.com/playwright:v1.44.0-jammy
 
 WORKDIR /app
 COPY . .
@@ -6,4 +6,5 @@ COPY . .
 RUN npm install
 
 EXPOSE 3000
-CMD ["npm", "start"]
+
+CMD ["node", "index.js"]
