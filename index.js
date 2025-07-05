@@ -1,21 +1,53 @@
 const express = require('express');
 const { create } = require('@open-wa/wa-automate');
-const chromium = require('chromium');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+let qrData = '';
 
 create({
+  sessionId: 'wa_session',
+  multiDevice: true,
   headless: true,
-  executablePath: chromium.path,
   qrTimeout: 0,
   authTimeout: 0,
-  puppeteerOptions: {
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  }
+  puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
+  logConsole: false
 }).then(client => {
-  console.log("Cliente listo");
-}).catch(e => console.error("Error al crear cliente:", e));
+  console.log('WA Cliente iniciado');
+  client.onMessage(async message => {
+    console.log(`📩 Msg de ${message.sender.pushname}: ${message.body}`);
+    if (message.body.toLowerCase() === 'hola') {
+      await client.sendText(message.from, 'Hola, soy el bot 🤖');
+    }
+  });
+}).catch(err => console.error('❌ Error iniciando WA:', err));
 
-app.get('/', (_, res) => res.send('WAHA está corriendo.'));
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+const { default: createWA } = require('@open-wa/wa-automate');
+createWA({
+  sessionId: 'wa_session',
+  multiDevice: true,
+  qrTimeout: 0,
+  authTimeout: 0,
+  headless: true,
+  puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
+  logConsole: false,
+  qrCallback: base64Qr => {
+    qrData = base64Qr;
+    console.log('✅ QR capturado');
+  }
+});
+
+app.get('/qr', (req, res) => {
+  if (qrData) {
+    res.send(`
+      <html><body>
+        <h1>Escaneá el QR</h1>
+        <img src="${qrData}" />
+      </body></html>
+    `);
+  } else {
+    res.send('QR aún no generado. Esperá unos segundos y recargá.');
+  }
+});
+
+app.listen(3000, () => console.log('Servidor activo en puerto 3000'));
