@@ -1,57 +1,67 @@
-const express = require("express");
-const { create } = require("@open-wa/wa-automate");
+const express = require('express');
+const { create } = require('@open-wa/wa-automate');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
+
+let latestQr = null;
 
 create({
+  sessionId: "session_" + Date.now(),
   headless: true,
   qrTimeout: 0,
-  authTimeout: 0,
-  blockCrashLogs: true,
-  disableSpins: true,
-  disableWelcome: true,
-  logConsole: false,
-  popup: false
-}).then((client) => {
-  let qrCode;
+  authTimeout: 60,
+  multiDevice: true,
+  killProcessOnBrowserClose: true,
+  useChrome: true,
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
+}).then(client => {
+  console.log('✅ Cliente WA iniciado');
 
-  client.onStateChanged((state) => {
-    console.log("Estado:", state);
-  });
-
-  client.onStreamChange((state) => {
-    console.log("Stream:", state);
-  });
-
-  client.onAnyMessage((message) => {
-    console.log("Mensaje recibido:", message.body);
-  });
-
-  client.onMessage(async (message) => {
-    if (message.body === "hola") {
-      await client.sendText(message.from, "Hola, soy tu bot 🤖");
+  client.onStateChanged(state => {
+    console.log('🔄 Estado:', state);
+    if (['CONFLICT', 'UNLAUNCHED'].includes(state)) {
+      client.useHere();
     }
   });
 
-  client.on("qr", (base64Qr) => {
-    qrCode = base64Qr;
-    console.log("QR disponible por /qr");
+  client.onAnyMessage(msg => {
+    console.log('📩 Mensaje recibido:', msg.body);
   });
 
-  app.get("/qr", (req, res) => {
-    if (qrCode) {
-      res.send(`<img src="${qrCode}" />`);
-    } else {
-      res.send("QR no generado aún, intenta en unos segundos.");
-    }
-  });
+}).catch(err => {
+  console.error('❌ Error al iniciar WA:', err);
+});
 
-  app.get("/", (req, res) => {
-    res.send("Bot WA operativo");
+create({
+  sessionId: "session_" + Date.now(),
+  headless: true,
+  qrTimeout: 0,
+  authTimeout: 60,
+  multiDevice: true,
+  killProcessOnBrowserClose: true,
+  useChrome: true,
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
+}).then(client => {
+  client.on('qr', qr => {
+    latestQr = qr;
+    console.log("📸 QR generado");
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor activo en http://localhost:${PORT}`);
+// Ruta para mostrar el QR
+app.get('/qr', (req, res) => {
+  if (!latestQr) return res.send('QR no disponible aún');
+  res.send(`
+    <html>
+      <body>
+        <h1>Escaneá este QR</h1>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(latestQr)}&size=300x300" />
+      </body>
+    </html>
+  `);
+});
+
+app.listen(port, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
 });
