@@ -1,38 +1,17 @@
-FROM node:18-slim
+# Usa una imagen base con Chromium preinstalado
+FROM mcr.microsoft.com/playwright:v1.43.1-jammy
 
-# Instala dependencias necesarias + Chrome estable
-RUN apt-get update && apt-get install -y \
-    wget \
-    ca-certificates \
-    fonts-liberation \
-    libappindicator3-1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
-    chromium \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    CHROME_BIN=/usr/bin/chromium \
-    NODE_ENV=production
-
+# Crea el directorio de trabajo
 WORKDIR /app
 
+# Copia el contenido del proyecto
 COPY . .
 
+# Instala las dependencias
 RUN npm install
 
+# Expone el puerto que uses (por ejemplo, 3000)
 EXPOSE 3000
 
+# Comando para iniciar la app
 CMD ["npm", "start"]
